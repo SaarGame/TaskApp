@@ -1,39 +1,33 @@
 name: Deploy to Proxmox LXC
 
-# This triggers the action whenever you push to the "main" branch
 on:
   push:
-    branches: [ "main" ]
+    # Triggers on both common branch names just to be safe
+    branches: [ "main", "master" ]
 
 jobs:
   build-and-deploy:
-    # THIS IS THE MAGIC WORD: It tells GitHub to run this job on your Debian container, not their cloud servers.
     runs-on: self-hosted
-    
+
     steps:
-      # 1. Pull the latest code from the repository
       - name: Checkout Code
         uses: actions/checkout@v4
-      
-      # 2. Install the .NET SDK so we can build the app
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x' # Make sure this matches your project version
-      
-      # 3. Build and compile the app for Linux
+          dotnet-version: '10.0.x'
+
       - name: Publish App
-        run: dotnet publish -c Release -r linux-x64 --self-contained true -o ./publish_output
-      
-      # 4. Stop the currently running app
+        # FIX 1: Point directly to the API project file so the Solution file is ignored
+        run: dotnet publish ./TaskApp.Api/TaskApp.Api.csproj -c Release -r linux-x64 --self-contained true -o ./publish_output
+
       - name: Stop Service
         run: sudo systemctl stop taskapp
-      
-      # 5. Copy the new files to the app folder
-      # We use rsync and EXCLUDE tasks.db so your live database isn't overwritten by the empty development one!
-      - name: Copy Files (Exclude Database)
-        run: rsync -av --exclude='tasks.db' ./publish_output/ /var/www/taskapp/
-      
-      # 6. Start the app back up
+
+      - name: Copy Files
+        # FIX 2 & 3: Added --delete to clean up old files, and tasks.db* (with asterisk) to protect SQLite logs
+        run: rsync -av --delete --exclude='tasks.db*' ./publish_output/ /var/www/taskapp/
+
       - name: Start Service
         run: sudo systemctl start taskapp
