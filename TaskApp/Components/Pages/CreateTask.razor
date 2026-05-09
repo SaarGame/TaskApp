@@ -28,8 +28,13 @@
 
             <div class="row mb-3">
                 <div class="col">
-                    <label class="form-label"> דחיפות (0-5) [גבוה חשוב יותר]</label>
-                    <InputNumber @bind-Value="currentTask.Priority" class="form-control" min="0" max="5" />
+                    <label class="form-label"> דחיפות (0-5) [נמוך חשוב יותר]</label>
+                    <InputSelect @bind-Value="currentTask.Priority" class="form-select">
+                        @for (int i = 0; i <= 5; i++)
+                        {
+                            <option value="@i">@i</option>
+                        }
+                    </InputSelect>
                 </div>
             </div>
 
