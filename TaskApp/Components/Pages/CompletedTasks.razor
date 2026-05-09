@@ -3,6 +3,7 @@
 @inject AppDbContext Db
 @page "/completedTasks"
 @rendermode InteractiveServer
+@inject NavigationManager NavManager
 
 <style>
     th {cursor: pointer; user-select: none;}
@@ -71,7 +72,10 @@ else
                                         @(string.IsNullOrWhiteSpace(task.Description) ? "No description provided." : task.Description)
                                     </p>
                                 </div>
-                                <button class="btn btn-danger btn-sm" @onclick="() => DeleteTask(task)">מחק</button>
+                                <div>
+                                    <button class="btn btn-danger btn-sm" @onclick="() => DeleteTask(task)">מחק</button>
+                                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => EditTask(task)">ערוך</button>
+                                </div>
                             </div>
                         </td>
                     </tr>
@@ -196,6 +200,11 @@ else
             
             tasks = await Db.Tasks.Where(task => task.IsDone).ToListAsync();
         }
+    }
+
+    private async Task EditTask(TodoTask task)
+    {
+        NavManager.NavigateTo("/tasks/edit/" + task.Id);
     }
 
 }

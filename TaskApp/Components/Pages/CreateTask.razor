@@ -1,40 +1,42 @@
 ﻿@page "/createtask"
+@page "/tasks/edit/{Id:int}"
 @using Microsoft.EntityFrameworkCore
 @using TaskApp.Data
 @inject AppDbContext Db
 @inject NavigationManager NavManager
 @rendermode InteractiveServer
 
-<PageTitle>משימה חדשה</PageTitle>
+<!-- Dynamic Titles! -->
+<PageTitle>@(Id == 0 ? "משימה חדשה" : "עריכת משימה")</PageTitle>
 
-<h1>משימה חדשה</h1>
+<h1>@(Id == 0 ? "משימה חדשה" : "עריכת משימה")</h1>
 
 <div class="row mt-4">
     <div class="col-md-6">
-        <!-- The EditForm binds directly to our newTask C# object -->
-        <EditForm Model="newTask" OnValidSubmit="SaveTask">
+        <!-- The EditForm now binds directly to currentTask -->
+        <EditForm Model="currentTask" OnValidSubmit="SaveTask">
             
             <div class="mb-3">
                 <label class="form-label">כותרת המשימה</label>
-                <InputText @bind-Value="newTask.Title" class="form-control" required />
+                <InputText @bind-Value="currentTask.Title" class="form-control" required />
             </div>
 
             <div class="mb-3">
                 <label class="form-label">תיאור (אופציונלי)</label>
-                <InputTextArea @bind-Value="newTask.Description" class="form-control" rows="3" />
+                <InputTextArea @bind-Value="currentTask.Description" class="form-control" rows="3" />
             </div>
 
             <div class="row mb-3">
                 <div class="col">
                     <label class="form-label"> דחיפות (0-5) [גבוה חשוב יותר]</label>
-                    <InputNumber @bind-Value="newTask.Priority" class="form-control" min="0" max="5" />
+                    <InputNumber @bind-Value="currentTask.Priority" class="form-control" min="0" max="5" />
                 </div>
             </div>
 
             <div class="row mb-4">
                 <div class="col">
                     <label class="form-label">מיקום</label>
-                    <InputSelect @bind-Value="newTask.Location" class="form-select">
+                    <InputSelect @bind-Value="currentTask.Location" class="form-select">
                         @foreach (var loc in Enum.GetValues<Location>())
                         {
                             <option value="@loc">@loc</option>
@@ -43,7 +45,7 @@
                 </div>
                 <div class="col">
                     <label class="form-label">קטגוריה</label>
-                    <InputSelect @bind-Value="newTask.Category" class="form-select">
+                    <InputSelect @bind-Value="currentTask.Category" class="form-select">
                         @foreach (var cat in Enum.GetValues<Category>())
                         {
                             <option value="@cat">@cat</option>
@@ -60,19 +62,41 @@
 </div>
 
 @code {
-    // Instantiate a blank task for the form to bind to
-    private TodoTask newTask = new TodoTask 
+    [Parameter]
+    public int Id { get; set; }
+    
+    // We instantiate currentTask right away with your default values
+    private TodoTask currentTask = new TodoTask 
     { 
-        // Set some default values so the form isn't completely empty
         Priority = 0,
         Location = Location.כללי,
         Category = Category.כללי
     };
 
+    protected override async Task OnInitializedAsync()
+    {
+        // If an ID was passed in the URL, overwrite the default task with the one from the database
+        if (Id != 0)
+        {
+            var task = await Db.Tasks.FindAsync(Id);
+            if (task != null)
+            {
+                currentTask = task;
+            }
+        }
+    }
+
     private async Task SaveTask()
     {
-        // Add the new task to the database context
-        Db.Tasks.Add(newTask);
+        // The logic is now beautifully simple
+        if (Id == 0)
+        {
+            Db.Tasks.Add(currentTask);
+        }
+        else
+        {
+            Db.Tasks.Update(currentTask);
+        }
         
         // Save the changes to the SQLite file
         await Db.SaveChangesAsync();
