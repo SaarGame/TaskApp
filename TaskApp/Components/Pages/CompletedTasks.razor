@@ -1,0 +1,187 @@
+﻿@using Microsoft.EntityFrameworkCore
+@using TaskApp.Data
+@inject AppDbContext Db
+@page "/completedTasks"
+@rendermode InteractiveServer
+
+<style>
+    th {cursor: pointer; user-select: none;}
+    th:hover {background-color: #f0f0f0;}
+    
+    .task-row {
+        transition: opacity 0.5s ease-out;
+        opacity: 1;
+    }
+    .task-row.fading-out {
+        opacity: 0;
+    }
+</style>
+
+<PageTitle>משימות שהושלמו</PageTitle>
+
+<h1>משימות שהושלמו</h1>
+
+@if (tasks == null)
+{
+    <p><em>טוען משימות...</em></p>
+}
+else if (!tasks.Any())
+{
+    <p>לא נמצאו משימות.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th @onclick="@(() => SortTable("Priority"))">דחיפות @GetSortIndicator("Priority")</th>
+                <th @onclick="@(() => SortTable("Title"))">כותרת @GetSortIndicator("Title")</th>
+                <th @onclick="@(() => SortTable("Location"))">מיקום @GetSortIndicator("Location")</th>
+                <th @onclick="@(() => SortTable("Category"))">קטגוריה @GetSortIndicator("Category")</th>
+                <th>סטטוס</th>
+                <th @onclick="@(() => SortTable("Date"))">תאריך יצור @GetSortIndicator("Date")</th>
+                <th></th>
+            </tr>
+        </thead> 
+        <tbody>
+            @foreach (var task in tasks)
+            {
+                <tr class="task-row @(fadingTaskIds.Contains(task.Id) ? "fading-out" : "")">
+                    <td>@task.Priority</td>
+                    <td>@task.Title</td>
+                    <td>@task.Location</td>
+                    <td>@task.Category</td>
+                    <td><button class="btn btn-group-sm btn-success" @onclick="@(() => CompleteTask(task))">הושלם</button></td>
+                    <td>@task.CreatedAt.ToLocalTime().ToString("g")</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="@(() => ToggleExpand(task.Id))">
+                            @(expandedTaskId == task.Id ? "Collapse" : "Expand")
+                        </button>
+                    </td>
+                </tr>
+                @if (expandedTaskId == task.Id)
+                {
+                    <tr style="background-color: #f8f9fa;">
+                        <!-- colspan="7" ensures this cell stretches across the whole table -->
+                        <td colspan="7">
+                            <div class="p-3">
+                                <strong>:תיאור</strong>
+                                <p class="mb-0 mt-1">
+                                    @(string.IsNullOrWhiteSpace(task.Description) ? "No description provided." : task.Description)
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>    
+    </table>
+}
+
+@code {
+
+    private List<TodoTask>? tasks;
+
+    private string currentSortColoumn = "Date";
+    private bool isSortAscending = false; //Newest first
+
+    protected override async Task OnInitializedAsync()
+    {
+        tasks = await Db.Tasks.Where(task => task.IsDone).ToListAsync();
+        ApplySort();
+    }
+    
+    private int? expandedTaskId = null;
+
+    private void ToggleExpand(int taskId)
+    {
+        if (expandedTaskId == taskId)
+        {
+            expandedTaskId = null;
+        }
+        else
+        {
+            expandedTaskId = taskId;
+        }
+    }
+
+    private void SortTable(string sortColoumn)
+    {
+        if (sortColoumn == currentSortColoumn)
+        {
+            isSortAscending = !isSortAscending;
+        }
+        else
+        {
+            currentSortColoumn = sortColoumn;
+            isSortAscending = false;
+        }
+        
+        ApplySort();
+    }
+
+    private void ApplySort()
+    {
+        if (tasks == null) return;
+
+        tasks = currentSortColoumn switch
+        {
+            "Priority" => isSortAscending
+                ? tasks.OrderBy(t => t.Priority).ToList()
+                : tasks.OrderByDescending(t => t.Priority).ToList(),
+
+            "Title" => isSortAscending
+                ? tasks.OrderBy(t => t.Title).ToList()
+                : tasks.OrderByDescending(t => t.Title).ToList(),
+
+            "Location" => isSortAscending
+                ? tasks.OrderBy(t => t.Location).ToList()
+                : tasks.OrderByDescending(t => t.Location).ToList(),
+
+            "Category" => isSortAscending
+                ? tasks.OrderBy(t => t.Category).ToList()
+                : tasks.OrderByDescending(t => t.Category).ToList(),
+
+            "Date" => isSortAscending
+                ? tasks.OrderBy(t => t.CreatedAt).ToList()
+                : tasks.OrderByDescending(t => t.CreatedAt).ToList(),
+
+            _ => tasks
+        };
+    }
+
+    private string GetSortIndicator(string sortColoumn)
+    {
+        if (sortColoumn != currentSortColoumn)
+        {
+            return String.Empty;
+        }
+        
+        return isSortAscending ? "▲" : "▼";
+    }
+    
+    private HashSet<int> fadingTaskIds = new HashSet<int>();
+
+    private async Task CompleteTask(TodoTask task)
+    {
+        // 1. Add the ID to our fading list so the CSS class applies instantly
+        fadingTaskIds.Add(task.Id);
+        
+        // Tell Blazor to update the UI right now so the animation starts
+        StateHasChanged(); 
+
+        // 2. Wait for 500 milliseconds (the exact length of our CSS transition)
+        await Task.Delay(500);
+
+        // 3. Mark the task as complete and save it to the SQLite database
+        task.IsDone = false;
+        await Db.SaveChangesAsync();
+
+        // 4. Remove it from our local list so it disappears from the table
+        tasks.Remove(task);
+        
+        // 5. Clean up our fading list
+        fadingTaskIds.Remove(task.Id);
+    }
+
+}

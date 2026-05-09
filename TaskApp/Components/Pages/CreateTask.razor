@@ -1,0 +1,83 @@
+﻿@page "/createtask"
+@using Microsoft.EntityFrameworkCore
+@using TaskApp.Data
+@inject AppDbContext Db
+@inject NavigationManager NavManager
+@rendermode InteractiveServer
+
+<PageTitle>משימה חדשה</PageTitle>
+
+<h1>משימה חדשה</h1>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <!-- The EditForm binds directly to our newTask C# object -->
+        <EditForm Model="newTask" OnValidSubmit="SaveTask">
+            
+            <div class="mb-3">
+                <label class="form-label">כותרת המשימה</label>
+                <InputText @bind-Value="newTask.Title" class="form-control" required />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">תיאור (אופציונלי)</label>
+                <InputTextArea @bind-Value="newTask.Description" class="form-control" rows="3" />
+            </div>
+
+            <div class="row mb-3">
+                <div class="col">
+                    <label class="form-label"> דחיפות (0-5) [גבוה חשוב יותר]</label>
+                    <InputNumber @bind-Value="newTask.Priority" class="form-control" min="0" max="5" />
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col">
+                    <label class="form-label">מיקום</label>
+                    <InputSelect @bind-Value="newTask.Location" class="form-select">
+                        @foreach (var loc in Enum.GetValues<Location>())
+                        {
+                            <option value="@loc">@loc</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="col">
+                    <label class="form-label">קטגוריה</label>
+                    <InputSelect @bind-Value="newTask.Category" class="form-select">
+                        @foreach (var cat in Enum.GetValues<Category>())
+                        {
+                            <option value="@cat">@cat</option>
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">שמירה</button>
+            <a href="/" class="btn btn-outline-secondary ms-2">ביטול</a>
+            
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    // Instantiate a blank task for the form to bind to
+    private TodoTask newTask = new TodoTask 
+    { 
+        // Set some default values so the form isn't completely empty
+        Priority = 0,
+        Location = Location.כללי,
+        Category = Category.כללי
+    };
+
+    private async Task SaveTask()
+    {
+        // Add the new task to the database context
+        Db.Tasks.Add(newTask);
+        
+        // Save the changes to the SQLite file
+        await Db.SaveChangesAsync();
+        
+        // Redirect the user back to the Home page
+        NavManager.NavigateTo("/");
+    }
+}
